@@ -1,20 +1,37 @@
-import dash
-from dash import dcc
-from dash import html
-import plotly.express as px
+from re import S
+import numpy as np
 import pandas as pd
+import dash
+from dash import Dash, dcc, html, Input, Output
+import plotly.express as px
 
-app = dash.Dash(__name__)
 
-# assume you have a "long-form" data frame
-# see https://plotly.com/python/px-arguments/ for more options
-df = pd.DataFrame({
-    "Fruit": ["Apples", "Oranges", "Bananas", "Apples", "Oranges", "Bananas"],
-    "Amount": [4, 1, 2, 2, 4, 5],
-    "City": ["SF", "SF", "SF", "Montreal", "Montreal", "Montreal"]
-})
+pd.set_option('display.max_columns', None)  
 
-fig = px.bar(df, x="Fruit", y="Amount", color="City", barmode="group")
+salary_bins = []
+
+# Load data, change identity groups to boolean
+df = pd.read_excel("Data//CANDEV_PSC data.xlsx")
+
+df['ORGANISATION']=df['ORGANISATION'].astype('string')
+df['GROUP AND LEVEL  / GROUPE ET NIVEAU']=df['GROUP AND LEVEL  / GROUPE ET NIVEAU'].astype('string')
+df['PROVINCE_FR']=df['PROVINCE_FR'].astype('string')
+df['PROVINCE_EN']=df['PROVINCE_EN'].astype('string')
+df['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)']=df['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)'].astype('string')
+df['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES'] = df['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES'].astype('bool')
+df['INDIGENOUS PEOPLES / AUTOCHTONES'] = df['INDIGENOUS PEOPLES / AUTOCHTONES'].astype('bool')
+df['PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP'] = df['PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP'].astype('bool')
+df = df.sort_values(by=['ORGANISATION', 'APPLICATION DATE / DATE DE CANDIDATURE'])
+
+# Find unique labels for each category 
+orgs = df['ORGANISATION'].unique()
+levels = df['GROUP AND LEVEL  / GROUPE ET NIVEAU'].unique()
+provinces = df['PROVINCE_EN'].unique()
+languages = df['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)'].unique()
+
+app = Dash(__name__)
+
+fig = px.histogram(df, x='ORGANISATION')
 
 app.layout = html.Div(children=[
     html.H1(children='Hello Dash'),
