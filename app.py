@@ -1,5 +1,4 @@
 import re
-import numpy as np
 import pandas as pd
 from dash import Dash, dcc, html, Input, Output, dash_table, State
 import plotly.express as px
@@ -25,9 +24,14 @@ df['GROUP AND LEVEL  / GROUPE ET NIVEAU']=df['GROUP AND LEVEL  / GROUPE ET NIVEA
 df['PROVINCE_FR']=df['PROVINCE_FR'].astype('string')
 df['PROVINCE_EN']=df['PROVINCE_EN'].astype('string')
 df['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)']=df['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)'].astype('string')
-df['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES'] = df['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES'].astype('bool')
-df['INDIGENOUS PEOPLES / AUTOCHTONES'] = df['INDIGENOUS PEOPLES / AUTOCHTONES'].astype('bool')
-df['PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP'] = df['PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP'].astype('bool')
+df['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES']=df['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES'].astype('bool')
+df['INDIGENOUS PEOPLES / AUTOCHTONES']=df['INDIGENOUS PEOPLES / AUTOCHTONES'].astype('bool')
+df['PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP']=df['PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP'].astype('bool')
+
+df_no_groups = df.copy()
+df_no_groups = df_no_groups.drop(['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES',
+                                'INDIGENOUS PEOPLES / AUTOCHTONES',
+                                'PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP'], axis=1)
 
 # Initialize dash app
 app = Dash(__name__)
@@ -37,11 +41,6 @@ app.layout = html.Div(children=[
 
     # Title 
     html.H1(children='PSC Dashboard'),
-
-    # Sub heading
-    html.Div(children='''
-        Dash: A web application framework for your data.
-    '''),
 
     # Province list
     html.Div(children=[
@@ -53,7 +52,7 @@ app.layout = html.Div(children=[
             multi=True,
             id='select_prov'
         )
-    ], style={'padding': 5, 'flex': 1}),
+    ]),
 
     # Language list
     html.Div(children=[
@@ -64,7 +63,7 @@ app.layout = html.Div(children=[
             value=languages,
             id='select_lang'
         )
-    ], style={'padding': 5, 'flex': 1}),
+    ]),
 
     # Levels list
     html.Div(children=[
@@ -76,7 +75,7 @@ app.layout = html.Div(children=[
             multi=True,
             id='select_lvl'
         )
-    ], style={'padding': 5, 'flex': 1}),
+    ]),
 
     # Figure
     dcc.Graph(
@@ -91,7 +90,7 @@ app.layout = html.Div(children=[
 
     dash_table.DataTable(
         id = 'dt1', 
-        columns =  [{"name": i, "id": i,} for i in (df.columns)],
+        columns =  [{"name": i, "id": i,} for i in (df_no_groups.columns)],
         export_format = 'csv',
     ),
 
@@ -117,7 +116,7 @@ def clean_data(select_prov,select_lang,select_lvl):
     dff = dff[dff['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)'].str.contains(langs)]
     dff = dff[dff['GROUP AND LEVEL  / GROUPE ET NIVEAU'].str.contains(lvls)]
     
-    return dff.to_json(date_format='iso', orient='split')
+    return dff.to_json(date_format='iso')
 
 # Callbacks for dashboard interaction
 @app.callback(
@@ -126,7 +125,7 @@ def clean_data(select_prov,select_lang,select_lvl):
 )
 def update_app(cleaned_data):
     # Format selected categories and seperate by OR (|)
-    dff = pd.read_json(cleaned_data, orient='split')
+    dff = pd.read_json(cleaned_data)
 
     # Generate org hist, extract traces
     fig1 = px.histogram(dff, x='ORGANISATION')
@@ -173,10 +172,13 @@ def update_app(cleaned_data):
             State('submit-button','n_clicks')
 )
 def update_datatable(n_clicks, cleaned_data, csv_file): 
-    dff = pd.read_json(cleaned_data, orient='split')           
+    dff = pd.read_json(cleaned_data)
+    dff = dff.drop(['MEMBERS OF VISIBLE MINORITIES / MINORITÉS VISIBLES',
+            'INDIGENOUS PEOPLES / AUTOCHTONES',
+            'PERSONS WITH DISABILITIES / PERSONNES EN SITUATION DE HANDICAP'], axis=1)           
     if n_clicks:                            
         data_1 = dff.to_dict('rows')
         return data_1
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='localhost',port=8050, debug=False)
