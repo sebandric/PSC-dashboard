@@ -1,7 +1,7 @@
 import re
 import numpy as np
 import pandas as pd
-from dash import Dash, dcc, html, Input, Output, dash_table
+from dash import Dash, dcc, html, Input, Output, dash_table, State
 import plotly.express as px
 import plotly.subplots as sp
 import plotly.graph_objects as go
@@ -47,9 +47,10 @@ app.layout = html.Div(children=[
     html.Div(children=[
         html.Br(),
         html.Label('Provinces'),
-        dcc.Checklist(
+        dcc.Dropdown(
             options=provinces,
-            value=provinces[0:2],
+            value=provinces[0:5],
+            multi=True,
             id='select_prov'
         )
     ], style={'padding': 5, 'flex': 1}),
@@ -69,9 +70,10 @@ app.layout = html.Div(children=[
     html.Div(children=[
         html.Br(),
         html.Label('Levels'),
-        dcc.Checklist(
+        dcc.Dropdown(
             options=levels,
-            value=levels,
+            value=levels[0:5],
+            multi=True,
             id='select_lvl'
         )
     ], style={'padding': 5, 'flex': 1}),
@@ -80,18 +82,30 @@ app.layout = html.Div(children=[
     dcc.Graph(
         id='fig',
     ),
-])
 
-# Callbacks for dashboard interaction
+    html.Div([
+        html.Button(id='submit-button',                
+                children='Submit'
+        )
+    ]),
+
+    dash_table.DataTable(
+        id = 'dt1', 
+        columns =  [{"name": i, "id": i,} for i in (df.columns)],
+        export_format = 'csv',
+    ),
+
+    dcc.Store(id='intermediate_data')
+  
+], style={'display': 'flex', 'flex-direction': 'column'})
+
 @app.callback(
-    Output('fig','figure'),
+    Output('intermediate_data','data'),
     Input('select_prov','value'),
     Input('select_lang','value'),
     Input('select_lvl','value')
 )
-
-# Ploting and figure update
-def update_graph(select_prov,select_lang,select_lvl):
+def clean_data(select_prov,select_lang,select_lvl):
     # Format selected categories and seperate by OR (|)
     temp_str = '|'.join(select_prov)
     provs = re.sub("[\(\[].*?[\)\]]", "", temp_str)
@@ -102,6 +116,17 @@ def update_graph(select_prov,select_lang,select_lvl):
     dff = df[df['PROVINCE_EN'].str.contains(provs)]
     dff = dff[dff['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)'].str.contains(langs)]
     dff = dff[dff['GROUP AND LEVEL  / GROUPE ET NIVEAU'].str.contains(lvls)]
+    
+    return dff.to_json(date_format='iso', orient='split')
+
+# Callbacks for dashboard interaction
+@app.callback(
+    Output('fig','figure'),
+    Input('intermediate_data','data'),
+)
+def update_app(cleaned_data):
+    # Format selected categories and seperate by OR (|)
+    dff = pd.read_json(cleaned_data, orient='split')
 
     # Generate org hist, extract traces
     fig1 = px.histogram(dff, x='ORGANISATION')
@@ -111,7 +136,7 @@ def update_graph(select_prov,select_lang,select_lvl):
         figure1_traces.append(fig1["data"][trace])
 
     # Generate salargy hist, extract traces
-    fig2 = px.histogram(dff, x='SALARY / SALAIRE', nbins=20, color_discrete_sequence=['indianred'])
+    fig2 = px.histogram(dff, x='SALARY / SALAIRE', nbins=20, color='ORGANISATION').update_xaxes(categoryorder='total descending')
     fig2.update_layout(bargap=0.2)
     figure2_traces = []
     for trace in range(len(fig2["data"])):
@@ -119,7 +144,8 @@ def update_graph(select_prov,select_lang,select_lvl):
 
     # Plot figures
     fig = sp.make_subplots(
-        rows=1, cols=2)
+        rows=1, cols=2,
+        column_widths=[0.4, 0.6])
 
     for traces in figure1_traces:
         fig.append_trace(traces, row=1, col=1)
@@ -128,11 +154,11 @@ def update_graph(select_prov,select_lang,select_lvl):
         fig.append_trace(traces, row=1, col=2)
 
     # Update figure layout
-    fig.update_layout(bargap=0.1)
-    fig.update_layout(height=600, width=1500, title_text="Application Histograms by Organisation and Salary")
+    fig.update_layout(bargap=0.1, barmode='stack')
+    fig.update_layout(height=600, width=1650, title_text="Application Histograms by Organisation and Salary")
 
     # Update xaxis properties
-    fig.update_xaxes(title_text="Salargy Ranges", row=1, col=2)
+    fig.update_xaxes(title_text="Salary Ranges", row=1, col=2)
     fig.update_xaxes(title_text="Organisations", row=1, col=1)
 
     # Update yaxis properties
@@ -140,6 +166,17 @@ def update_graph(select_prov,select_lang,select_lvl):
     fig.update_yaxes(title_text="Number of Applicants", row=1, col=2)
 
     return fig
+
+@app.callback(Output('dt1','data'),
+            Input('submit-button','n_clicks'),
+            Input('intermediate_data','data'),
+            State('submit-button','n_clicks')
+)
+def update_datatable(n_clicks, cleaned_data, csv_file): 
+    dff = pd.read_json(cleaned_data, orient='split')           
+    if n_clicks:                            
+        data_1 = dff.to_dict('rows')
+        return data_1
 
 if __name__ == '__main__':
     app.run_server(debug=True)
