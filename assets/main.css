@@ -1,3 +1,7 @@
 body{
-    background-color:lavender
+    background-color: rgba(230, 235, 248, 0.993);
+    font-family: "Helvetica";
+}
+h2 {
+    line-height:0px;
 }

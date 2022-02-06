@@ -1,6 +1,7 @@
 import re
 import pandas as pd
 from dash import Dash, dcc, html, Input, Output, dash_table, State
+import dash_daq as daq
 import plotly.express as px
 import plotly.subplots as sp
 import plotly.graph_objects as go
@@ -40,7 +41,7 @@ app = Dash(__name__)
 app.layout = html.Div(children=[
 
     # Title 
-    html.H1(children='PSC Dashboard'),
+    html.H2(children='PSC Dashboard'),
 
     # Province list
     html.Div(children=[
@@ -65,6 +66,18 @@ app.layout = html.Div(children=[
         )
     ]),
 
+    html.Div(children=[
+        html.Br(),
+        html.Label('Employment equity membership'),
+        html.Div(children=[
+            daq.BooleanSwitch(
+                on=False,
+                color='red',
+                id='eqm_select'
+            )
+        ],style={'width': '5%','padding-left':'0%', 'padding-right':'0%'})
+    ]),
+
     # Levels list
     html.Div(children=[
         html.Br(),
@@ -82,9 +95,12 @@ app.layout = html.Div(children=[
         id='fig',
     ),
 
+    html.H3(children='Show filtered table and export data'),
+
+    # EQM button
     html.Div([
         html.Button(id='submit-button',                
-                children='Submit'
+                children='Show Table'
         )
     ]),
 
@@ -92,6 +108,10 @@ app.layout = html.Div(children=[
         id = 'dt1', 
         columns =  [{"name": i, "id": i,} for i in (df_no_groups.columns)],
         export_format = 'csv',
+        editable=True,
+        filter_action="native",
+        sort_action="native",
+        sort_mode="multi"
     ),
 
     dcc.Store(id='intermediate_data')
@@ -102,19 +122,23 @@ app.layout = html.Div(children=[
     Output('intermediate_data','data'),
     Input('select_prov','value'),
     Input('select_lang','value'),
-    Input('select_lvl','value')
+    Input('select_lvl','value'),
+    Input('eqm_select', 'on')
 )
-def clean_data(select_prov,select_lang,select_lvl):
+def clean_data(select_prov,select_lang,select_lvl,on):
     # Format selected categories and seperate by OR (|)
     temp_str = '|'.join(select_prov)
     provs = re.sub("[\(\[].*?[\)\]]", "", temp_str)
     langs = '|'.join(select_lang)
     lvls = '|'.join(select_lvl)
+    x = "{}".format(on)
 
     # Query df
     dff = df[df['PROVINCE_EN'].str.contains(provs)]
     dff = dff[dff['FIRST OFFICIAL LANGUAGE / PREMIÈRE LANGUE OFFICIELLE (EN)'].str.contains(langs)]
     dff = dff[dff['GROUP AND LEVEL  / GROUPE ET NIVEAU'].str.contains(lvls)]
+    if (x=="True"):
+        dff = dff[dff[groups].any(axis='columns')]
     
     return dff.to_json(date_format='iso')
 
@@ -154,7 +178,7 @@ def update_app(cleaned_data):
 
     # Update figure layout
     fig.update_layout(bargap=0.1, barmode='stack')
-    fig.update_layout(height=600, width=1650, title_text="Application Histograms by Organisation and Salary")
+    fig.update_layout(height=500, width=1650, title_text="Application Histograms by Organisation and Salary")
 
     # Update xaxis properties
     fig.update_xaxes(title_text="Salary Ranges", row=1, col=2)
@@ -166,6 +190,7 @@ def update_app(cleaned_data):
 
     return fig
 
+# Update table, show table on click
 @app.callback(Output('dt1','data'),
             Input('submit-button','n_clicks'),
             Input('intermediate_data','data'),
@@ -181,4 +206,5 @@ def update_datatable(n_clicks, cleaned_data, csv_file):
         return data_1
 
 if __name__ == '__main__':
-    app.run_server(host='localhost',port=8050, debug=False)
+    app.run_server(host='localhost',port=8050, debug=True)
+
