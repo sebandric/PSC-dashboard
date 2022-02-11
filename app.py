@@ -64,8 +64,9 @@ app.layout = html.Div(children=[
             value=languages,
             id='select_lang'
         )
-    ]),
+    ],style={'display': 'inline-block'}),
 
+    # eqm button
     html.Div(children=[
         html.Br(),
         html.Label('Employment equity membership'),
@@ -76,7 +77,7 @@ app.layout = html.Div(children=[
                 id='eqm_select'
             )
         ],style={'width': '5%','padding-left':'0%', 'padding-right':'0%'})
-    ]),
+    ],style={'display': 'inline-block'}),
 
     # Levels list
     html.Div(children=[
@@ -97,13 +98,14 @@ app.layout = html.Div(children=[
 
     html.H3(children='Show filtered table and export data'),
 
-    # EQM button
+    # table button
     html.Div([
         html.Button(id='submit-button',                
                 children='Show Table'
         )
     ]),
 
+    #data table
     dash_table.DataTable(
         id = 'dt1', 
         columns =  [{"name": i, "id": i,} for i in (df_no_groups.columns)],
@@ -206,5 +208,5 @@ def update_datatable(n_clicks, cleaned_data, csv_file):
         return data_1
 
 if __name__ == '__main__':
-    app.run_server(host='localhost',port=8050, debug=True)
+    app.run_server(host='localhost',port=8050, debug=False)
 
